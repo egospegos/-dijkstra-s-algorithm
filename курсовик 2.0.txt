@@ -1,0 +1,1464 @@
+
+#include "stdafx.h"
+#include<stdio.h>
+#include<conio.h>
+#include <Windows.h>
+#include <iostream>
+
+struct goroda
+{
+	char gorod[30];
+} g[30] = {};
+
+struct map
+{
+	char karta[30];
+};
+
+struct road
+{
+	char from[30];
+	char to[30];
+	int l;
+	char gorod[30];
+};
+
+road list_g[30];
+FILE *file;
+char filename2[] = "названия карт.txt";
+char format[] = ".txt";
+char filenameNEW[30];
+
+int k = 0; // количество городов
+int count = 1;//количество карт
+
+void gotoxy(short x, short y) {
+	HANDLE StdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	COORD coord = { x, y };
+	SetConsoleCursorPosition(StdOut, coord);
+}
+
+void SetColor(int text, int background)
+{
+	HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(hStdOut, (WORD)((background << 4) | text));
+}
+
+void visibleCursor(bool visible)
+{
+	HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_CURSOR_INFO cci;
+	cci.dwSize = 1;
+	cci.bVisible = visible;
+	SetConsoleCursorInfo(hStdOut, &cci);
+}
+
+void view(char *filename)
+{
+	SetColor(15, 0);
+	int z = 2;
+	gotoxy(60, z);
+	road dr;
+	file = fopen(filename, "rt");
+	if (file)
+	{
+		printf("____________________________________________________________");
+		gotoxy(60, ++z);
+		printf("|Откуда            |Куда              |Протяжённость(км)   |");
+		gotoxy(60, ++z);
+		printf("|__________________|__________________|____________________|");
+		gotoxy(60, ++z);
+		while (fread(&dr, sizeof(road), 1, file))
+		{
+			printf("|%-18s|%-18s|%-20d|", dr.from, dr.to, dr.l);
+			gotoxy(60, ++z);
+
+		}
+		printf("|__________________|__________________|____________________|");
+		fclose(file);
+
+	}
+	else printf("Файл не существует. Нажмите любую клавишу");
+	fflush(stdin);
+}
+
+void create_list_dorog(char *filename)
+{
+	int j;
+	road b;
+	int	check;
+	file = fopen(filename, "rt");
+	fread(&b, sizeof(road), 1, file);
+	strcpy(list_g[0].gorod, b.from);
+	strcpy(list_g[1].gorod, b.to);
+	k = 2;
+	while (!feof(file))
+	{
+		check = 0;
+		fread(&b, sizeof(road), 1, file);
+		for (j = 0; j < k; j++)
+		{
+			if (strcmp(list_g[j].gorod, b.from) == 0)
+			{
+				check = 1;
+				break;
+			}
+		}
+		if (check == 0)
+		{
+			k++;
+			strcpy(list_g[k - 1].gorod, b.from);
+		}
+
+		check = 0;
+		for (j = 0; j < k; j++)
+		{
+			if (strcmp(list_g[j].gorod, b.to) == 0)
+			{
+				check = 1;
+				break;
+			}
+		}
+		if (check == 0)
+		{
+			k++;
+			strcpy(list_g[k - 1].gorod, b.to);
+		}
+	}
+	fclose(file);
+}
+
+void matrix(int **GG, char *filename)
+{
+	file = fopen(filename, "rt");
+	rewind(file);
+	road b;
+	int i, j;
+	for (i = 0; i < k; i++)
+		for (j = 0; j < k; j++)
+			GG[i][j] = 0;
+
+	while (fread(&b, sizeof(road), 1, file))
+	{
+		for (i = 0; i < k; i++)
+			for (j = 0; j < k; j++)
+			{
+				if ((strcmp(list_g[i].gorod, b.from) == 0) && (strcmp(list_g[j].gorod, b.to) == 0)) GG[i][j] = b.l;
+				if ((strcmp(list_g[i].gorod, b.to) == 0) && (strcmp(list_g[j].gorod, b.from) == 0)) GG[i][j] = b.l;
+			}
+
+	}
+	fclose(file);
+}
+
+int dijkstra(int **GG, int startnode, int finish)
+{
+	int fun_mindistance;
+	int  count, mindistance, nextnode, i, j;
+
+	int **cost = new int*[k];
+	for (int i = 0; i < k; i++)
+		cost[i] = new int[k];
+
+	int *distance = new int[k];
+	int *pred = new int[k];
+	int *visited = new int[k];
+
+	for (i = 0; i<k; i++)
+		for (j = 0; j<k; j++)
+			if (GG[i][j] == 0)
+				cost[i][j] = 9999;
+			else
+				cost[i][j] = GG[i][j];
+
+	for (i = 0; i<k; i++)
+	{
+		distance[i] = cost[startnode][i];
+		pred[i] = startnode;
+		visited[i] = 0;
+	}
+
+	distance[startnode] = 0;
+	visited[startnode] = 1;
+	count = 1;
+
+	while (count<k - 1)
+	{
+		mindistance = 9999;
+		for (i = 0; i<k; i++)
+			if (distance[i]<mindistance && !visited[i])
+			{
+				mindistance = distance[i];
+				nextnode = i;
+			}
+            
+		visited[nextnode] = 1;
+		for (i = 0; i<k; i++)
+			if (!visited[i])
+				if (mindistance + cost[nextnode][i]<distance[i])
+				{
+					distance[i] = mindistance + cost[nextnode][i];
+					pred[i] = nextnode;
+				}
+		count++;
+	}
+	fun_mindistance = distance[finish];
+	return fun_mindistance;
+}
+
+void dijkstra_output(int **GG, int startnode, int finish)
+{
+	int fun_mindistance;
+	int  count, mindistance, nextnode, i, j;
+
+	int **cost = new int*[k];
+	for (int i = 0; i < k; i++)
+		cost[i] = new int[k];
+
+	int *distance = new int[k];
+	int *pred = new int[k];
+	int *visited = new int[k];
+
+	for (i = 0; i<k; i++)
+		for (j = 0; j<k; j++)
+			if (GG[i][j] == 0)
+				cost[i][j] = 9999;
+			else
+				cost[i][j] = GG[i][j];
+
+	for (i = 0; i<k; i++)
+	{
+		distance[i] = cost[startnode][i];
+		pred[i] = startnode;
+		visited[i] = 0;
+	}
+
+	distance[startnode] = 0;
+	visited[startnode] = 1;
+	count = 1;
+
+	while (count<k - 1)
+	{
+		mindistance = 9999;
+		for (i = 0; i<k; i++)
+			if (distance[i]<mindistance && !visited[i])
+			{
+				mindistance = distance[i];
+				nextnode = i;
+			}
+            
+		visited[nextnode] = 1;
+		for (i = 0; i<k; i++)
+			if (!visited[i]) 
+				if (mindistance + cost[nextnode][i]<distance[i])
+				{
+					distance[i] = mindistance + cost[nextnode][i];
+					pred[i] = nextnode;
+				}
+		count++;
+	}
+
+
+	//вывод пути
+	int *mass = new int[k];
+	int m = 0;
+	j = finish;
+	mass[m] = j;
+	do
+	{
+		m++;
+		j = pred[j];
+		mass[m] = j;
+	} while (j != startnode);
+
+	for (i = m; i >= 0; i--)
+		if (i != 0)
+		{
+			SetColor(14, 0);
+			printf("%s--> ", list_g[mass[i]].gorod);
+		}
+		else
+		{
+			SetColor(14, 0);
+			printf("%s", list_g[mass[i]].gorod);
+		}
+}
+
+void dijkstra_output2(int **GG, int startnode, int finish)
+{
+	int fun_mindistance;
+	int  count, mindistance, nextnode, i, j;
+
+	int **cost = new int*[k];
+	for (int i = 0; i < k; i++)
+		cost[i] = new int[k];
+
+	int *distance = new int[k];
+	int *pred = new int[k];
+	int *visited = new int[k];
+
+	for (i = 0; i<k; i++)
+		for (j = 0; j<k; j++)
+			if (GG[i][j] == 0)
+				cost[i][j] = 9999;
+			else
+				cost[i][j] = GG[i][j];
+
+	for (i = 0; i<k; i++)
+	{
+		distance[i] = cost[startnode][i];
+		pred[i] = startnode;
+		visited[i] = 0;
+	}
+
+	distance[startnode] = 0;
+	visited[startnode] = 1;
+	count = 1;
+
+	while (count<k - 1)
+	{
+		mindistance = 9999;
+
+		for (i = 0; i<k; i++)
+			if (distance[i]<mindistance && !visited[i]) 
+			{
+				mindistance = distance[i];
+				nextnode = i;
+			}
+       
+		visited[nextnode] = 1;
+		for (i = 0; i<k; i++)
+			if (!visited[i]) 
+				if (mindistance + cost[nextnode][i]<distance[i])
+				{
+					distance[i] = mindistance + cost[nextnode][i];
+					pred[i] = nextnode;
+				}
+		count++;
+	}
+
+//вывод пути
+	int *mass = new int[k];
+	int m = 0;
+	j = finish;
+	mass[m] = j;
+	do
+	{
+		m++;
+		j = pred[j];
+		mass[m] = j;
+	} while (j != startnode);
+
+	for (i = m - 1; i >= 0; i--)
+	{
+		SetColor(14, 0);
+		printf("--> %s", list_g[mass[i]].gorod);
+	}
+}
+
+void swap(int *a, int i, int j)
+{
+	int s = a[i];
+	a[i] = a[j];
+	a[j] = s;
+}
+
+bool NextSet(int *a, int n)
+{
+	int j = n-2;
+	while (j != 0 && a[j] >= a[j + 1]) j--;
+	if (j == 0)
+		return false; // больше перестановок нет
+	int k = n - 1;
+	while (a[j] >= a[k]) k--;
+	swap(a, j, k);
+	int l = j + 1, r = n - 1; // сортируем оставшуюся часть последовательности
+	while (l<r)
+		swap(a, l++, r--);
+	return true;
+}
+
+int menu()
+{
+	int l = 1;
+	int z = 8;
+	system("cls");
+	int punkt = 1000;
+	SetColor(15, 2);
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	SetColor(10, 0);
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(20, z++);
+	printf("                       ***  ПОСТРОИТЬ МАРШРУТ  ***                      ");
+	SetColor(15, 0);
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(20, z++);
+	printf("                          СОЗДАТЬ НОВУЮ КАРТУ                       ");
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(20, z++);
+	printf("                          ДОБАВИТЬ ИНФОРМАЦИЮ В КАРТУ                       ");
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(20, z++);
+	printf("                          СПРАВКА                                   ");
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(20, z++);
+	printf("                          ВЫХОД                                    ");
+	gotoxy(20, z++);
+	SetColor(15, 2);
+	gotoxy(20, z++);
+	printf("                                                                         ");
+	gotoxy(21, 21);
+	SetColor(12, 0);
+	visibleCursor(false);
+	gotoxy(20, 8);
+	while (punkt != 32 && punkt != 13)
+	{
+		punkt = _getch();
+		if (punkt == 80)			//down
+			if (l == 5)l = 1;
+			else l++;
+			if (punkt == 72)			//up
+				if (l == 1)l = 5;
+				else l--;
+
+				z = 10;
+				gotoxy(20, z++);
+				SetColor(15, 0);
+				printf("                          ПОСТРОИТЬ МАРШРУТ                         ");
+				gotoxy(20, z++);
+				printf("                                                                         ");
+				gotoxy(20, z++);
+				printf("                          СОЗДАТЬ НОВУЮ КАРТУ                       ");
+				gotoxy(20, z++);
+				printf("                                                                         ");
+				gotoxy(20, z++);
+				printf("                          ДОБАВИТЬ ИНФОРМАЦИЮ В КАРТУ                       ");
+				gotoxy(20, z++);
+				printf("                                                                         ");
+				gotoxy(20, z++);
+				printf("                          СПРАВКА                                   ");
+				gotoxy(20, z++);
+				printf("                                                                         ");
+				gotoxy(20, z++);
+				printf("                          ВЫХОД                                    ");
+				switch (l)
+				{
+				case 1:
+				{
+					gotoxy(20, 10);
+					SetColor(10, 0);
+					printf("                       ***  ПОСТРОИТЬ МАРШРУТ  ***                      ");
+					gotoxy(20, 8);
+					break;
+				}
+				case 2:
+				{
+					gotoxy(20, 12);
+					SetColor(10, 0);
+					printf("                       ***  СОЗДАТЬ НОВУЮ КАРТУ  ***                ");
+					gotoxy(20, 8);
+					break;
+				}
+				case 3:
+				{
+					gotoxy(20, 14);
+					SetColor(10, 0);
+					printf("                       ***  ДОБАВИТЬ ИНФОРМАЦИЮ В КАРТУ  ***                ");
+					gotoxy(20, 8);
+					break;
+				}
+				case 4:
+				{
+					gotoxy(20, 16);
+					SetColor(10, 0);
+					printf("                       ***  СПРАВКА  ***                          ");
+					gotoxy(20, 8);
+					break;
+				}
+				case 5:
+				{
+					gotoxy(20, 18);
+					SetColor(10, 0);
+					printf("                        ***  ВЫХОД  ***                           ");
+					gotoxy(20, 8);
+					break;
+				}
+				}
+
+	}
+	return l;
+}
+
+int select_towns(char *filename)
+{
+	system("cls");
+	SetColor(15, 0);
+	int i, n;
+	int l = 1;
+	int t;
+	int z = 2;
+	int punkt = 1000;
+	create_list_dorog(filename);
+	gotoxy(10, z);
+	SetColor(15, 1);
+	printf(" СПИСОК ГОРОДОВ: ");
+	gotoxy(10, ++z);
+	SetColor(10, 0);
+	printf("                     ");
+	gotoxy(10, ++z);
+	printf("1) %s ***", list_g[0].gorod);
+	gotoxy(10, ++z);
+	SetColor(15, 0);
+	for (int i = 1; i < k; i++)
+	{
+		printf("%d) %s       ", i + 1, list_g[i].gorod);
+		gotoxy(10, ++z);
+	}
+	gotoxy(10, ++z);
+	printf("Выберите ваше местоположение: ");
+
+	gotoxy(30, 32);
+	SetColor(12, 0);
+	printf("Выберите город при помощи стрелок \"Вверх\" и \"Вниз\" и нажмите Enter.");
+
+	while (punkt != 32 && punkt != 13) // 13 - enter
+	{
+		punkt = _getch();
+		if (punkt == 80)			//down
+			if (l == k)l = 1;
+			else l++;
+			if (punkt == 72)			//up
+				if (l == 1)l = k;
+				else l--;
+
+				z = 2;
+				gotoxy(10, z);
+				SetColor(15, 1);
+				printf(" СПИСОК ГОРОДОВ: ");
+				SetColor(15, 0);
+				gotoxy(10, ++z);
+				printf("                   ");
+				for (int i = 0; i < k; i++)
+				{
+					gotoxy(10, ++z);
+					printf("%d) %s          ", i + 1, list_g[i].gorod);
+				}
+
+				z = 2;
+				gotoxy(10, z);
+				SetColor(15, 1);
+				printf(" СПИСОК ГОРОДОВ: ");
+				SetColor(15, 0);
+				gotoxy(10, ++z);
+				printf("                   ");
+				for (int i = 0; i < k; i++)
+					if (i == l - 1) { 
+						SetColor(10, 0);  
+						gotoxy(10, ++z);
+						printf("%d) %s ***\n", i + 1, list_g[i].gorod); 
+					}
+					else { 
+						SetColor(15, 0);  
+						gotoxy(10, ++z);   
+						printf("%d) %s        \n", i + 1, list_g[i].gorod); 
+					}
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					gotoxy(10, ++z);
+					printf("Выберите ваше местоположение: ");
+
+	}
+	strcpy(g[0].gorod, list_g[l - 1].gorod);
+	SetColor(11, 0);
+	printf("%s ", list_g[l - 1].gorod);
+	gotoxy(30, 32);
+	SetColor(12, 0);
+	printf("Введите чило и нажмите Enter.                                        ");
+	gotoxy(10, ++z);
+	gotoxy(10, ++z);
+	SetColor(15, 0);
+	visibleCursor(true);
+	printf("Введите количество городов, которое вы ещё хотите посетить: ");
+	SetColor(11, 0);
+	scanf_s("%d", &n);
+	n++;
+	visibleCursor(false);
+
+	SetColor(15, 0);
+	l = 1;
+	z = 2;
+	punkt = 1000;
+	gotoxy(10, z);
+	SetColor(15, 1);
+	printf(" СПИСОК ГОРОДОВ: ");
+	gotoxy(10, ++z);
+	SetColor(10, 0);
+	printf("                     ");
+	gotoxy(10, ++z);
+	printf("1) %s ***", list_g[0].gorod);
+	gotoxy(10, ++z);
+	SetColor(15, 0);
+	for (int i = 1; i < k; i++)
+	{
+		printf("%d) %s       ", i + 1, list_g[i].gorod);
+		gotoxy(10, ++z);
+	}
+	gotoxy(10, ++z);
+	printf("Ваше местоположение: ");
+	SetColor(11, 0);
+	printf("%s                              ", g[0].gorod);
+	gotoxy(30, 32);
+	SetColor(12, 0);
+	printf("Выберите город при помощи стрелок \"Вверх\" и \"Вниз\" и нажмите Enter.");
+	gotoxy(10, ++z);
+	gotoxy(10, ++z);
+	gotoxy(10, ++z);
+	SetColor(15, 0);
+	gotoxy(10, ++z);
+	printf("Города, которые вы выбрали: ");
+	int count = 0;
+
+	for (i = 1; i < n; i++)
+	{
+		while (punkt != 32 && punkt != 13)
+		{
+			punkt = _getch();
+			if (punkt == 80)			//down
+				if (l == k)l = 1;
+				else l++;
+				if (punkt == 72)			//up
+					if (l == 1)l = k;
+					else l--;
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 1);
+					printf(" СПИСОК ГОРОДОВ: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+					{
+						gotoxy(10, ++z);
+						printf("%d) %s          ", i + 1, list_g[i].gorod);
+					}
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 1);
+					printf(" СПИСОК ГОРОДОВ: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+						if (i == l - 1) { 
+							SetColor(10, 0);  
+							gotoxy(10, ++z); 
+							printf("%d) %s ***\n", i + 1, list_g[i].gorod); 
+						}
+						else { 
+							SetColor(15, 0);  
+							gotoxy(10, ++z);   
+							printf("%d) %s        \n", i + 1, list_g[i].gorod); 
+						}
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+						SetColor(15, 0);
+						gotoxy(10, ++z);
+						printf("Города, которые вы выбрали: ");
+
+		}
+		punkt = 1000;
+		strcpy(g[i].gorod, list_g[l - 1].gorod);
+		count++;
+		for (int j = 1; j <= count; j++)
+		{
+			SetColor(15, 0);
+			printf("%d. ", j);
+			SetColor(11, 0);
+			printf("%s", g[j].gorod);
+			gotoxy(38, ++z);
+		}
+
+	}
+
+	gotoxy(10, ++z);
+	gotoxy(10, ++z);
+	return n;
+}
+
+void PATH(int n, char *filename)
+{
+
+	int u, w, buf, i, j, mindistance, fun_mindistance, new_mindistance;
+	int q;
+	int *a, *remember;
+
+	int **GG = new int*[k]; // k строк в массиве
+	for (int count = 0; count < k; count++)
+		GG[count] = new int[k]; // и k столбцов
+
+	matrix(GG, filename);
+	mindistance = 9999;
+	fun_mindistance = 0;
+
+	a = new int[n];
+	remember = new int[n];
+	for (i = 0; i < n; i++)
+		for (j = 0; j < k; j++)
+		{
+			if (strcmp(g[i].gorod, list_g[j].gorod) == 0) a[i] = j;
+		}
+
+	for (int i = 1; i < n - 1; i++)
+	{
+		for (int j = n - 1; j > i; j--)
+		{
+			if (a[j] < a[j - 1])
+			{
+				buf = a[j - 1];
+				a[j - 1] = a[j];
+				a[j] = buf;
+			}
+		}
+	}
+
+	if (n > 2)
+	{
+		do 
+		{
+
+			if (a[1] < a[n - 1])
+			{
+				new_mindistance = 0;
+				for (i = 0; i < n - 1; i++)
+				{
+					new_mindistance = new_mindistance + dijkstra(GG, a[i], a[i + 1]);
+				}
+				if (new_mindistance < mindistance)
+				{
+					mindistance = new_mindistance;
+					for (q = 0; q < n; q++)
+						remember[q] = a[q];
+				}
+			}
+
+		} while (NextSet(a, n));
+	}
+	else
+	{
+		mindistance = dijkstra(GG, a[0], a[1]);
+		for (q = 0; q < n; q++)
+			remember[q] = a[q];
+	}
+
+	SetColor(15, 0);
+	printf("Маршрут поездки: ");
+	int count = 0;
+
+	for (i = 0; i <n - 1; i++)
+	{
+		if (count == 0) dijkstra_output(GG, remember[i], remember[i + 1]);
+		else dijkstra_output2(GG, remember[i], remember[i + 1]);
+		count++;
+	}
+	printf("\n");
+	SetColor(15, 0);
+	printf("          Общая протяжённость маршрута = ");
+	SetColor(14, 0);
+	printf("%d км\n\n", mindistance);
+	SetColor(15, 0);
+
+	printf("          П Р И Я Т Н О Й    П О Е З Д К И ! ! ! \n\n\n\n\n\n");
+
+	gotoxy(30, 32);
+	SetColor(12, 0);	
+	printf("Нажмите Enter для возврата в выбор карты.                                                         ");
+	
+	SetColor(15, 0);
+	getchar();
+	getchar();
+
+}
+
+void addInfo(char *filename)
+{
+	char s;
+	do
+	{
+		int z = 2;
+		system("cls");
+		view(filename);
+		create_list_dorog(filename);
+
+		gotoxy(35, z);
+		SetColor(15, 5);
+		printf(" КУДА: ");
+		gotoxy(35, ++z);
+		SetColor(10, 0);
+		printf("                     ");
+		gotoxy(35, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(35, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s      ", i + 1, list_g[i].gorod);
+			gotoxy(35, ++z);
+		}
+
+
+		SetColor(15, 0);
+		road a;
+		int i, n;
+		int l = 1;
+		int t;
+		int punkt = 1000;
+		z = 2;
+		gotoxy(10, z);
+		SetColor(15, 5);
+		printf(" ОТКУДА: ");
+		gotoxy(10, ++z);
+		SetColor(10, 0);
+		printf("                     ");
+		gotoxy(10, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(10, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s    ", i + 1, list_g[i].gorod);
+			gotoxy(10, ++z);
+		}
+
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Выберите город при помощи стрелок \"Вверх\" и \"Вниз\" и нажмите Enter.");
+		SetColor(15, 0);
+		gotoxy(10, ++z);
+		while (punkt != 32 && punkt != 13)
+		{
+			punkt = _getch();
+			if (punkt == 80)			//down
+				if (l == k)l = 1;
+				else l++;
+				if (punkt == 72)			//up
+					if (l == 1)l = k;
+					else l--;
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 5);
+					printf(" ОТКУДА: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+					{
+						gotoxy(10, ++z);
+						printf("%d) %s       ", i + 1, list_g[i].gorod);
+					}
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 5);
+					printf(" ОТКУДА: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+						if (i == l - 1) { SetColor(10, 0);  gotoxy(10, ++z); printf("%d) %s ***\n", i + 1, list_g[i].gorod); }
+						else { SetColor(15, 0);  gotoxy(10, ++z);   printf("%d) %s       \n", i + 1, list_g[i].gorod); }
+						SetColor(15, 0);
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+
+
+		}
+		gotoxy(15, 18);
+		strcpy(a.from, list_g[l - 1].gorod);
+		SetColor(14, 0);
+		printf("%s ", a.from);
+		SetColor(15, 0);
+		printf("-->");
+
+		l = 1;
+		z = 2;
+		punkt = 1000;
+		gotoxy(35, z);
+		SetColor(15, 5);
+		printf(" КУДА: ");
+		gotoxy(35, ++z);
+		SetColor(10, 0);
+		printf("                  ");
+		gotoxy(35, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(35, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s      ", i + 1, list_g[i].gorod);
+			gotoxy(35, ++z);
+		}
+		gotoxy(35, ++z);
+
+		while (punkt != 32 && punkt != 13)
+		{
+			punkt = _getch();
+			if (punkt == 80)			//down
+				if (l == k)l = 1;
+				else l++;
+				if (punkt == 72)			//up
+					if (l == 1)l = k;
+					else l--;
+
+					z = 2;
+					gotoxy(35, z);
+					SetColor(15, 5);
+					printf(" КУДА: ");
+					SetColor(15, 0);
+					gotoxy(35, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+					{
+						gotoxy(35, ++z);
+						printf("%d) %s        ", i + 1, list_g[i].gorod);
+					}
+
+					z = 2;
+					gotoxy(35, z);
+					SetColor(15, 5);
+					printf(" КУДА: ");
+					SetColor(15, 0);
+					gotoxy(35, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+						if (i == l - 1) { SetColor(10, 0);  gotoxy(35, ++z); printf("%d) %s ***\n", i + 1, list_g[i].gorod); }
+						else { SetColor(15, 0);  gotoxy(35, ++z);   printf("%d) %s      \n", i + 1, list_g[i].gorod); }
+						SetColor(15, 0);
+						gotoxy(35, ++z);
+						gotoxy(35, ++z);
+
+
+		}
+		gotoxy(15, 18);
+		strcpy(a.to, list_g[l - 1].gorod);
+		SetColor(14, 0);
+		printf("%s ", a.from);
+		SetColor(15, 0);
+		printf("--> ");
+		SetColor(14, 0);
+		printf("%s", a.to);
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Введите число и нажмите Enter.                                       ");
+		SetColor(15, 0);
+		gotoxy(10, 20);
+		visibleCursor(true);
+		printf("Расстояние между этими городами в км: ");
+		SetColor(14, 0);
+		scanf("%d", &a.l);
+		gotoxy(10, 20);
+		SetColor(15, 0);
+		visibleCursor(false);
+		printf("Расстояние между этими городами: ");
+		SetColor(14, 0);
+		printf("%d км    ", a.l);
+		gotoxy(10, 22);
+		SetColor(15, 0);
+
+		file = fopen(filename, "at+");
+		fwrite(&a, sizeof(road), 1, file);
+		fclose(file);
+
+		printf("Информация успешно добавлена.");
+		gotoxy(10, 23);
+		printf("Добавить ещё сведения?[Д/Н]");
+
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Нажмите на клавиатуре 'Д', если хотите добаваить ещё сведения. В противном случае нажмите 'Н'.                ");
+		gotoxy(15, 26);
+		SetColor(15, 0);
+		view(filename);
+		s = _getch();
+	} while (s == 'д' || s == 'Д');
+}
+
+int choose_map()
+{
+	map a;
+	int l = 1;
+	int z = 8;
+	system("cls");
+	int punkt = 1000;
+	SetColor(15, 2);
+	gotoxy(20, z);
+	printf("                                                                         "); //на 8
+	gotoxy(20, ++z);
+	SetColor(15, 0);
+	printf("                                                                         "); // на 9
+	
+	count = 1;
+	file = fopen(filename2, "rt");
+	while (fread(&a, sizeof(map), 1, file)) count++;
+	rewind(file);
+
+	fread(&a, sizeof(map), 1, file);
+	gotoxy(20, ++z);
+	SetColor(10, 0);
+	printf("                       ***  %s  ***                      ", a.karta); //на 10
+	SetColor(15, 0);
+	gotoxy(20, ++z);
+	printf("                                                                         ");// на 11
+	while (fread(&a, sizeof(map), 1, file))
+	{
+		gotoxy(20, ++z);
+		printf("                          %s                       ", a.karta);
+		gotoxy(20, ++z);
+		printf("                                                                         ");
+	}
+	gotoxy(20, ++z);
+	printf("                          Назад в меню                                   ");
+	gotoxy(20, ++z);
+	printf("                                                                         ");
+	SetColor(15, 2);
+	gotoxy(20, ++z);
+	printf("                                                                         ");
+	z = z + 2;
+	gotoxy(48, z);
+	SetColor(12, 0);
+	printf("ВЫБЕРИТЕ КАРТУ");
+	rewind(file);
+	
+
+
+	gotoxy(20, 8);
+	while (punkt != 32 && punkt != 13)
+	{
+		punkt = _getch();
+		if (punkt == 80)			//down
+			if (l == count)l = 1;
+			else l++;
+			if (punkt == 72)			//up
+				if (l == 1)l = count;
+				else l--;
+
+				z = 10;
+				SetColor(15, 0);
+				gotoxy(20, z);
+
+				while (fread(&a, sizeof(map), 1, file))
+				{
+					printf("                          %s                     ", a.karta);
+					gotoxy(20, ++z);
+					printf("                                                                         ");
+					gotoxy(20, ++z);
+				}			 
+				printf("                          Назад в меню                                   ");
+				gotoxy(20, ++z);
+				printf("                                                                         ");
+
+				rewind(file);
+				z = 10;
+				gotoxy(20, z);
+				int q = 1;
+				while (fread(&a, sizeof(map), 1, file))
+				{
+					if (l == q)
+					{
+						SetColor(10, 0);
+						printf("                       ***  %s  ***                      ", a.karta);
+						z = z + 2;
+						gotoxy(20, z);
+						break;
+					}
+					z = z + 2;
+					gotoxy(20, z);
+					q++;
+				}
+
+				if (l == count)
+				{
+					SetColor(10, 0);
+					printf("                        ***  Назад в меню ***                           ");
+					gotoxy(20, ++z);
+					printf("                                                                         ");
+				}
+				rewind(file);
+				
+
+	}
+	fclose(file);
+	return l;		    
+}
+
+void showInfo()
+{
+	visibleCursor(false);
+	SetColor(15, 2);
+	gotoxy(50, 2);
+	printf(" СПРАВКА ");
+	gotoxy(10, 4);
+	SetColor(15, 0);
+	printf("Программа предназначена для поиска оптимального (минимальной протяжённости) маршрута по выбранным городам с учётом ");
+	gotoxy(10, 5);
+	printf("вашего местоположения. Вы можете выбрать более 2 городов.");
+	gotoxy(10, 7);
+	printf("Следуйте инструкциям, выделенным ");
+	SetColor(12, 0);
+	printf("красным цветом");
+	SetColor(15, 0);
+	printf(", и всё получится!");
+	gotoxy(45, 12);
+	SetColor(12, 0);
+	printf("Нажмите Enter для возврата в меню.");
+	getchar();
+}
+
+void create_map()
+{
+	int k, i;
+	map dr;
+	char s;
+	system("cls");
+	file = fopen(filename2, "at+");
+	gotoxy(15, 25);
+	SetColor(12, 0);
+	printf("Введите название карты.");
+	gotoxy(10, 3);
+	SetColor(15, 0);
+	printf("Название карты: ");
+	visibleCursor(true);
+	SetColor(11, 0);
+	gets_s(dr.karta);
+	fflush(stdin);
+	fwrite(&dr, sizeof(map), 1, file);
+	fclose(file);
+
+	strcpy(filenameNEW, dr.karta);
+	strcat(filenameNEW, format);
+
+	file = fopen(filenameNEW, "wt");
+	fclose(file);
+	gotoxy(15, 25);
+	SetColor(12, 0);
+	printf("Введите число.                                       ");
+	gotoxy(10, 5);
+	SetColor(15, 0);
+	printf("Количество городов в новой карте: ");
+	SetColor(11, 0);
+	scanf("%d", &k);
+	gotoxy(15, 25);
+	SetColor(12, 0);
+	printf("Введите название города.                                       ");
+	int z = 7;
+	gotoxy(10, z);
+	for (i = 0; i < k; i++)
+	{
+		SetColor(15, 0);
+		printf("%d) ", i+1);
+		SetColor(11, 0);
+		scanf("%s", list_g[i].gorod);
+		gotoxy(10, ++z);
+	}
+
+
+	visibleCursor(false);
+	do
+	{
+		int z = 2;
+		system("cls");
+		view(filenameNEW);
+
+		gotoxy(35, z);
+		SetColor(15, 5);
+		printf(" КУДА: ");
+		gotoxy(35, ++z);
+		SetColor(10, 0);
+		printf("                     ");
+		gotoxy(35, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(35, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s      ", i + 1, list_g[i].gorod);
+			gotoxy(35, ++z);
+		}
+
+
+		SetColor(15, 0);
+		road a;
+		int  n;
+		int l = 1;
+		int t;
+		int punkt = 1000;
+		z = 2;
+		gotoxy(10, z);
+		SetColor(15, 5);
+		printf(" ОТКУДА: ");
+		gotoxy(10, ++z);
+		SetColor(10, 0);
+		printf("                     ");
+		gotoxy(10, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(10, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s    ", i + 1, list_g[i].gorod);
+			gotoxy(10, ++z);
+		}
+
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Выберите город при помощи стрелок \"Вверх\" и \"Вниз\" и нажмите Enter.");
+		SetColor(15, 0);
+		gotoxy(10, ++z);
+		while (punkt != 32 && punkt != 13)
+		{
+			punkt = _getch();
+			if (punkt == 80)			//down
+				if (l == k)l = 1;
+				else l++;
+				if (punkt == 72)			//up
+					if (l == 1)l = k;
+					else l--;
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 5);
+					printf(" ОТКУДА: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+					{
+						gotoxy(10, ++z);
+						printf("%d) %s       ", i + 1, list_g[i].gorod);
+					}
+
+					z = 2;
+					gotoxy(10, z);
+					SetColor(15, 5);
+					printf(" ОТКУДА: ");
+					SetColor(15, 0);
+					gotoxy(10, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+						if (i == l - 1) { SetColor(10, 0);  gotoxy(10, ++z); printf("%d) %s ***\n", i + 1, list_g[i].gorod); }
+						else { SetColor(15, 0);  gotoxy(10, ++z);   printf("%d) %s       \n", i + 1, list_g[i].gorod); }
+						SetColor(15, 0);
+						gotoxy(10, ++z);
+						gotoxy(10, ++z);
+
+
+		}
+		gotoxy(15, 18);
+		strcpy(a.from, list_g[l - 1].gorod);
+		SetColor(14, 0);
+		printf("%s ", a.from);
+		SetColor(15, 0);
+		printf("-->");
+
+		l = 1;
+		z = 2;
+		punkt = 1000;
+		gotoxy(35, z);
+		SetColor(15, 5);
+		printf(" КУДА: ");
+		gotoxy(35, ++z);
+		SetColor(10, 0);
+		printf("                  ");
+		gotoxy(35, ++z);
+		printf("1) %s ***", list_g[0].gorod);
+		gotoxy(35, ++z);
+		SetColor(15, 0);
+		for (int i = 1; i < k; i++)
+		{
+			printf("%d) %s      ", i + 1, list_g[i].gorod);
+			gotoxy(35, ++z);
+		}
+		gotoxy(35, ++z);
+
+		while (punkt != 32 && punkt != 13)
+		{
+			punkt = _getch();
+			if (punkt == 80)			//down
+				if (l == k)l = 1;
+				else l++;
+				if (punkt == 72)			//up
+					if (l == 1)l = k;
+					else l--;
+
+					z = 2;
+					gotoxy(35, z);
+					SetColor(15, 5);
+					printf(" КУДА: ");
+					SetColor(15, 0);
+					gotoxy(35, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+					{
+						gotoxy(35, ++z);
+						printf("%d) %s        ", i + 1, list_g[i].gorod);
+					}
+
+					z = 2;
+					gotoxy(35, z);
+					SetColor(15, 5);
+					printf(" КУДА: ");
+					SetColor(15, 0);
+					gotoxy(35, ++z);
+					printf("                   ");
+					for (int i = 0; i < k; i++)
+						if (i == l - 1) { SetColor(10, 0);  gotoxy(35, ++z); printf("%d) %s ***\n", i + 1, list_g[i].gorod); }
+						else { SetColor(15, 0);  gotoxy(35, ++z);   printf("%d) %s      \n", i + 1, list_g[i].gorod); }
+						SetColor(15, 0);
+						gotoxy(35, ++z);
+						gotoxy(35, ++z);
+
+
+		}
+		gotoxy(15, 18);
+		strcpy(a.to, list_g[l - 1].gorod);
+		SetColor(14, 0);
+		printf("%s ", a.from);
+		SetColor(15, 0);
+		printf("--> ");
+		SetColor(14, 0);
+		printf("%s", a.to);
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Введите число и нажмите Enter.                                       ");
+		SetColor(15, 0);
+		gotoxy(10, 20);
+		visibleCursor(true);
+		printf("Расстояние между этими городами в км: ");
+		SetColor(14, 0);
+		scanf("%d", &a.l);
+		gotoxy(10, 20);
+		SetColor(15, 0);
+		visibleCursor(false);
+		printf("Расстояние между этими городами: ");
+		SetColor(14, 0);
+		printf("%d км    ", a.l);
+		gotoxy(10, 22);
+		SetColor(15, 0);
+
+		file = fopen(filenameNEW, "at+");
+		fwrite(&a, sizeof(road), 1, file);
+		fclose(file);
+
+		printf("Информация успешно добавлена. Добавить ещё сведения?[Д/Н]");
+
+		gotoxy(15, 25);
+		SetColor(12, 0);
+		printf("Нажмите на клавиатуре 'Д', если хотите добаваить ещё сведения. В противном случае нажмите 'Н'.                ");
+		SetColor(15, 0);
+		view(filenameNEW);
+		s = _getch();
+	} while (s == 'д' || s == 'Д');
+	
+}
+
+int main()
+{
+	char filename[30];
+	wchar_t szTITLE[] = L"Нахождение оптимального маршрута";
+	SetConsoleTitle(szTITLE);
+	int n;// количество городов, которые мы должны посетить
+	int u, w, buf, i, j, mindistance, fun_mindistance, new_mindistance;
+	int q;
+	int *a, *remember;
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+	system("Cls");
+
+	int v=1;
+	int punkt;
+	int adpunkt;
+	map b;
+
+	while ((punkt = menu()) != 5)
+	{
+		switch (punkt)
+		{
+		case 1:
+		{
+			
+			while ((adpunkt = choose_map()) != count)
+			{
+				v = 1;
+				file = fopen(filename2, "rt");
+				rewind(file);
+				while (fread(&b, sizeof(map), 1, file))
+				{
+					if (v == adpunkt)
+					{
+						strcat(b.karta, format);
+						strcpy(filename, b.karta);
+						PATH(select_towns(filename), filename);
+					}
+					v++;
+
+				}
+				fclose(file);
+				count = 1;
+			}
+			count = 1;
+			break;
+		}
+
+		case 2:
+		{
+			create_map();
+			break;
+		}
+
+		case 3:
+		{
+			while ((adpunkt = choose_map()) != count)
+			{
+				v = 1;
+				file = fopen(filename2, "rt");
+				rewind(file);
+				while (fread(&b, sizeof(map), 1, file))
+				{
+					if (v == adpunkt)
+					{
+						strcat(b.karta, format);
+						strcpy(filename, b.karta);
+						addInfo(filename);
+					}
+					v++;
+
+				}
+				fclose(file);
+				count = 1;
+			}
+			count = 1;
+			break;
+		}
+
+		case 4:
+		{
+			system("cls");
+			showInfo();
+			break;
+		}
+
+		}
+	}
+	return 0;
+}
